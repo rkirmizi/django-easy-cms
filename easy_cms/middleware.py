@@ -61,9 +61,9 @@ class StaticPagesFallbackMiddleware(object):
             if staticpage.url == url + '/':
                 return HttpResponsePermanentRedirect('%s/' % request.path)
         except Http404:
-            translation = get_object_or_404(
-                ContentTranslation.objects.exclude(language_code=lang),
-                site__id__exact=site_id, query)
+            translations = ContentTranslation.objects.exclude(
+                language_code=lang).filter(site__id__exact=site_id)
+            translation = get_object_or_404(translations, query)
             content = get_object_or_404(
                 translation.master.translations.exclude(id=translation.id),
                 language_code=lang, url__isnull=False)
