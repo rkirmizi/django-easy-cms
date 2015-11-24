@@ -1,6 +1,7 @@
 import json
 
 from django.conf import settings
+from djano.db.models import Q
 from django.contrib.sites.models import get_current_site
 from django.http import Http404, HttpResponse, HttpResponsePermanentRedirect
 from django.shortcuts import get_object_or_404
@@ -9,7 +10,7 @@ from django.utils.safestring import mark_safe
 from django.views.decorators.csrf import csrf_protect
 from django.utils.decorators import method_decorator
 
-from easy_cms.models import Content
+from easy_cms.models import Content, ContentTranslation
 from easy_cms.serializers import serialize_staticpage
 
 
@@ -18,6 +19,7 @@ DEFAULT_TEMPLATE = 'cms/staticpages/default.html'
 
 # copied from django's FlatpageFallbackMiddleware
 class StaticPagesFallbackMiddleware(object):
+
     @method_decorator(csrf_protect)
     def render_staticpage(self, request, staticpage):
         if request.is_ajax():
@@ -44,21 +46,28 @@ class StaticPagesFallbackMiddleware(object):
     def staticpage(self, request, url):
         if not url.startswith('/'):
             url = '/' + url
+
         site_id = get_current_site(request).id
         lang = request.LANGUAGE_CODE
         try:
-            staticpage = get_object_or_404(Content.objects.language(lang),
-                                           url__exact=url,
-                                           site__id__exact=site_id)
-        except Http404:
+            staticpage = Content.objects.language(lang).filter(
+                site__id__exact=site_id)
+
+            query = Q(url__exact=url)
             if not url.endswith('/') and settings.APPEND_SLASH:
-                url += '/'
-                staticpage = get_object_or_404(Content.objects.language(lang),
-                                               url__exact=url,
-                                               site__id__exact=site_id)
+                query = Q(Q(url__exact=url) | Q(url__exact=url + '/'))
+
+            staticpage = get_object_or_404(staticpage, query)
+            if staticpage.url == url + '/':
                 return HttpResponsePermanentRedirect('%s/' % request.path)
-            else:
-                raise
+        except Http404:
+            translation = get_object_or_404(
+                ContentTranslation.objects.exclude(language_code=lang),
+                url__exact=url, site__id__exact=site_id)
+            content = get_object_or_404(
+                translation.master.translations.exclude(id=translation.id),
+                language_code=lang, url__isnull=False)
+            return HttpResponsePermanentRedirect(content.url)
         return self.render_staticpage(request, staticpage)
 
     def process_response(self, request, response):
