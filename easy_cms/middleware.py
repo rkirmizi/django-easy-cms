@@ -63,7 +63,7 @@ class StaticPagesFallbackMiddleware(object):
         except Http404:
             translation = get_object_or_404(
                 ContentTranslation.objects.exclude(language_code=lang),
-                url__exact=url, site__id__exact=site_id)
+                site__id__exact=site_id, query)
             content = get_object_or_404(
                 translation.master.translations.exclude(id=translation.id),
                 language_code=lang, url__isnull=False)
