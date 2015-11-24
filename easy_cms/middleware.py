@@ -1,7 +1,7 @@
 import json
 
 from django.conf import settings
-from djano.db.models import Q
+from django.db.models import Q
 from django.contrib.sites.models import get_current_site
 from django.http import Http404, HttpResponse, HttpResponsePermanentRedirect
 from django.shortcuts import get_object_or_404
